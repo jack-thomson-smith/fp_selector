@@ -67,7 +67,7 @@ if __name__ == "__main__":
     field = input("protein field: ")
     lookup = input("lookup operator: ")
     value = input("value of lookup: ")
-    print("\nfetching data....\n")
+    print("\nfetching data....")
 
     if field == "" and lookup == "" and value == "":
         protein_list = create_protein_dict(lookup_proteins())
@@ -76,7 +76,7 @@ if __name__ == "__main__":
                                                            lookup,
                                                            value))
 
-    print("Please enter command:")
+    print("\nPlease enter command:")
     command = ""
     while command != "exit":
         command = input("> ")
