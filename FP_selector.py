@@ -36,7 +36,7 @@ def create_protein_dict(response_object):
     """
     Takes a response object and writes its text to csv_buffer.csv.
     Then, reads that file and outputs a dict mapped to each protein's
-    uuid (unique 4-digit number) containing a dict of the protein's data. 
+    uuid (unique 4-digit number) containing a dict of the protein's data.
     This could probably be done without writing to a file.
 
     Arguments:
@@ -89,6 +89,8 @@ if __name__ == "__main__":
                 print(f"{count}: {protein['name']}")
                 count += 1
                 sleep(0.01)
+        elif command == "else":
+            pass  # loop breaks due to command now being "exit"
         else:
             print("unknown")
     print("")
