@@ -8,13 +8,12 @@ FPBase API documentation: https://www.fpbase.org/api/
 Requests Module documentation: https://requests.readthedocs.io/en/
 """
 
-url = "https://www.fpbase.org/api/proteins/"
-
 
 def lookup_proteins(field="name", lookup="icontains", value="green"):
     """
-    Searches FPBase database for proteins that match the critera. See
-    documentation for list of parameters: https://www.fpbase.org/api/
+    Searches FPBase database for proteins that match the critera, and
+    oututs a response object. See documentation for list of parameters: 
+    https://www.fpbase.org/api/
 
     Arguments:
         field: a string of the field you want to look up (ex: name, seq,
@@ -25,28 +24,33 @@ def lookup_proteins(field="name", lookup="icontains", value="green"):
 
     Returns: A response object
     """
-
+    url = "https://www.fpbase.org/api/proteins/"
     payload = {f"{field}__{lookup}": value}  # "field__lookup":"value"
-    return requests.get(url, params=payload)
+    response_object = requests.get(url, params=payload)
+    print(f"status: {response_object.status_code} ({response_object.reason})")
+
+    return response_object
 
 
-def create_dictreader(response_object):
+def create_protein_dict(response_object):
     """
     Takes a response object and writes its text to csv_buffer.csv.
-    Then, reads that file and outputs a DictReader object.
+    Then, reads that file and outputs a dict mapped to each protein's
+    uuid (unique 4-digit number) containing a dict of the protein's data. 
+    This could probably be done without writing to a file.
 
     Arguments:
         response_object: a response object from the requests module,
         like the one outputted by lookup_protein().
 
-    Returns: a list of dicts of protein data that fit the criteria
+    Returns: a dict of dicts of protein data that fit the criteria
     """
-    output = []
+    output = {}
     with open("csv_buffer.csv", "w") as csv_file:
         csv_file.write(response_object.text)
     with open("csv_buffer.csv", "r") as csv_file:
         for line in csv.DictReader(csv_file):
-            output.append(line)
+            output[line["uuid"]] = line
     return output
 
 
@@ -63,19 +67,32 @@ if __name__ == "__main__":
     field = input("protein field: ")
     lookup = input("lookup operator: ")
     value = input("value of lookup: ")
-    print("___________________________________________________________")
-    print("Thanks! Here are the proteins that fit your specifications:\n")
+    print("\nfetching data....\n")
 
     if field == "" and lookup == "" and value == "":
-        protein_list = create_dictreader(lookup_proteins())
+        protein_list = create_protein_dict(lookup_proteins())
     else:
-        protein_list = create_dictreader(lookup_proteins(field, lookup, value))
+        protein_list = create_protein_dict(lookup_proteins(field,
+                                                           lookup,
+                                                           value))
 
-    for i in range(1, len(protein_list)):
-        print(f"{i}: {protein_list[i]['name']}")
-        sleep(0.05)
+    print("Please enter command:")
+    command = ""
+    while command != "exit":
+        command = input("> ")
+        if command == "list dict":
+            for (key, value) in protein_list.items():
+                print(f"{key}: {value}\n\n")
+        elif command == "list names":
+            count = 1
+            for protein in protein_list.values():
+                print(f"{count}: {protein['name']}")
+                count += 1
+                sleep(0.01)
+        else:
+            print("unknown")
     print("")
-    print("____________________________________________________________")
+    print("_______")
     print("Thanks for using FP_Selector!")
 
     # -------------code above this line-----------------------
