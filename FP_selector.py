@@ -10,9 +10,8 @@ Requests Module documentation: https://requests.readthedocs.io/en/
 
 
 def lookup_proteins(field="name", lookup="icontains", value="green"):
-    """
-    Searches FPBase database for proteins that match the critera, and
-    oututs a response object. See documentation for list of parameters: 
+    """ Searches FPBase database for proteins that match the critera, and
+    outputs a response object. See documentation for list of parameters:
     https://www.fpbase.org/api/
 
     Arguments:
@@ -22,8 +21,8 @@ def lookup_proteins(field="name", lookup="icontains", value="green"):
                 contains)
         value: a string of the value you want to find (ex: green, 541)
 
-    Returns: A response object
-    """
+    Returns: A response object """
+
     url = "https://www.fpbase.org/api/proteins/"
     payload = {f"{field}__{lookup}": value}  # "field__lookup":"value"
     response_object = requests.get(url, params=payload)
@@ -33,8 +32,7 @@ def lookup_proteins(field="name", lookup="icontains", value="green"):
 
 
 def create_protein_dict(response_object):
-    """
-    Takes a response object and writes its text to csv_buffer.csv.
+    """ Takes a response object and writes its text to csv_buffer.csv.
     Then, reads that file and outputs a dict mapped to each protein's
     uuid (unique 4-digit number) containing a dict of the protein's data.
     This could probably be done without writing to a file.
@@ -43,8 +41,8 @@ def create_protein_dict(response_object):
         response_object: a response object from the requests module,
         like the one outputted by lookup_protein().
 
-    Returns: a dict of dicts of protein data that fit the criteria
-    """
+    Returns: a dict of dicts of protein data that fit the criteria """
+
     output = {}
     with open("csv_buffer.csv", "w") as csv_file:
         csv_file.write(response_object.text)
@@ -54,12 +52,19 @@ def create_protein_dict(response_object):
     return output
 
 
-if __name__ == "__main__":
-    # root = tk.Tk(screenName="FP_Selector",
-    #             baseName="Fluorescent Protein Selector",
-    #             className="FP_Selector (Tkinter)", useTk=1)
-    # -------------code below this line-----------------------
+def prompt_choose_compatible(protein_list):
+    """ gets user input to choose compatible proteins.
+    """
+    num_proteins = input("How many proteins?\n> ")
+    em_maxes = 0
+    for pdict in protein_list.values():
+        em_maxes += pdict["states.0.em_max"]
+    em_max_ave = em_maxes/len()
+    
+    emx_ave = 0
 
+
+if __name__ == "__main__":
     print("")
     print("Welcome to FP_Selector!")
     print("Please input your specifications below.")
@@ -89,6 +94,8 @@ if __name__ == "__main__":
                 print(f"{count}: {protein['name']}")
                 count += 1
                 sleep(0.01)
+        elif command == "pick compatible proteins" or command == "pcp":
+            prompt_choose_compatible(protein_list)
         elif command == "else":
             pass  # loop breaks due to command now being "exit"
         else:
@@ -96,6 +103,3 @@ if __name__ == "__main__":
     print("")
     print("_______")
     print("Thanks for using FP_Selector!")
-
-    # -------------code above this line-----------------------
-    # root.mainloop()
