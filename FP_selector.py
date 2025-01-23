@@ -10,44 +10,41 @@ Requests Module documentation: https://requests.readthedocs.io/en/
 
 PWD = 50  # protein wavelength distribution
 
+class Query():
+    
+def refresh_database(field="default_state__em_max", lookup="gte", value="400"):
+    """ Searches FPBase database for proteins that match the critera, then writes
+    those values to _protein_database.csv. See documentation for list of parameters:
+    https://www.fpbase.org/api/. The current default params should return all proteins 
+    in the database. 
 
-def lookup_proteins(field="name", lookup="icontains", value="green"):
-    """ Searches FPBase database for proteins that match the critera, and
-    outputs a response object. See documentation for list of parameters:
-    https://www.fpbase.org/api/
 
     Arguments:
         field: a string of the field you want to look up (ex: name, seq,
                 default_state_qy)
         lookup: a string of the lookup operator you want to use (ex: lt,
                 contains)
-        value: a string of the value you want to find (ex: green, 541)
-
-    Returns: A response object """
+        value: a string of the value you want to find (ex: green, 541)"""
 
     url = "https://www.fpbase.org/api/proteins/"
     payload = {f"{field}__{lookup}": value}  # "field__lookup":"value"
     response_object = requests.get(url, params=payload)
     print(f"status: {response_object.status_code} ({response_object.reason})")
+    with open("_protein_database.csv", "w") as csv_file:
+        csv_file.write(response_object.text)
+        #  writes refreshed data to file
 
-    return response_object
 
-
-def create_protein_dict(response_object):
-    """ Takes a response object and writes its text to csv_buffer.csv.
-    Then, reads that file and outputs a dict mapped to each protein's
-    uuid (unique 4-digit number) containing a dict of the protein's data.
-    This could probably be done without writing to a file.
+def create_protein_dict(file="_protein_database.csv"):
+    """ reads _protein_database.csv and outputs a dict of dicts.
 
     Arguments:
-        response_object: a response object from the requests module,
-        like the one outputted by lookup_protein().
+        file: a csv file (like _protein_database.csv).
 
-    Returns: a dict of dicts of protein data that fit the criteria """
+    Returns: a dict of dicts of protein data. Each dict is a row in
+    the file and is mapped to the uuid of the protein."""
 
     output = {}
-    with open("csv_buffer.csv", "w") as csv_file:
-        csv_file.write(response_object.text)
     with open("csv_buffer.csv", "r") as csv_file:
         for line in csv.DictReader(csv_file):
             output[line["uuid"]] = line
@@ -58,17 +55,15 @@ def prompt_choose_compatible(protein_list):
     """ gets user input to choose compatible proteins.
     """
 
+    ngcp = input(""" How many types of compatible
+                 proteins do you want to find?\n> """)
+    # ^ number of compatible proteins to find
+
     protein_data = maximize_for_brightness(protein_list)
     usable_spec = set(range(400, 701))
     usable_spec -= set(range(protein_data[0]-PWD, protein_data[0]+PWD))
     # now, usable_spec is a set of all wavelengths between 400 and 700
     # that the protein we just found's em max does not overlap with.
-
-    protein_list2 = create_protein_dict(lookup_proteins(field="",
-                                                        lookup="",
-                                                        value=""
-    ))
-
 
 
 def maximize_for_brightness(protein_list):
@@ -98,20 +93,9 @@ if __name__ == "__main__":
     print("Welcome to FP_Selector!")
     print("Please input your specifications below.")
     print("")
-    field = input("protein field: ")
-    lookup = input("lookup operator: ")
-    value = input("value of lookup: ")
-    print("\nfetching data....")
 
-    if field == "" and lookup == "" and value == "":
-        protein_list = create_protein_dict(lookup_proteins())
-    else:
-        protein_list = create_protein_dict(lookup_proteins(field,
-                                                           lookup,
-                                                           value))
-
-    print("\nPlease enter command:")
     command = ""
+    print("\nPlease enter command:")
     while command != "exit":
         command = input("> ")
         if command == "list dict":
@@ -125,6 +109,8 @@ if __name__ == "__main__":
                 sleep(0.01)
         elif command == "pick compatible proteins" or command == "pcp":
             prompt_choose_compatible(protein_list)
+        elif command == "refresh database":
+
         elif command == "else":
             pass  # loop breaks due to command now being "exit"
         else:
