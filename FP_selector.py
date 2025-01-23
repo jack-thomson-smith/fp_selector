@@ -8,6 +8,8 @@ FPBase API documentation: https://www.fpbase.org/api/
 Requests Module documentation: https://requests.readthedocs.io/en/
 """
 
+PWD = 50  # protein wavelength distribution
+
 
 def lookup_proteins(field="name", lookup="icontains", value="green"):
     """ Searches FPBase database for proteins that match the critera, and
@@ -55,13 +57,40 @@ def create_protein_dict(response_object):
 def prompt_choose_compatible(protein_list):
     """ gets user input to choose compatible proteins.
     """
-    num_proteins = input("How many proteins?\n> ")
-    em_maxes = 0
+
+    protein_data = maximize_for_brightness(protein_list)
+    usable_spec = set(range(400, 701))
+    usable_spec -= set(range(protein_data[0]-PWD, protein_data[0]+PWD))
+    # now, usable_spec is a set of all wavelengths between 400 and 700
+    # that the protein we just found's em max does not overlap with.
+
+    protein_list2 = create_protein_dict(lookup_proteins(field="",
+                                                        lookup="",
+                                                        value=""
+    ))
+
+
+
+def maximize_for_brightness(protein_list):
+    """ Given dict of protein dicts, chooses brightest one, and
+    returns its emission max, excitation max, brightness value, and uuid.
+    Could make this function more efficient by not accessing pdict values
+    for every increment of brightness, and instead only accessing it once
+    the loop has found the brightest one. Might do that someday!
+
+    Arguments:
+        protein_list: dict of dicts from create_protein_dict()
+    Returns: (em max of protein, ex max, brightness value, uuid) """
+
+    output = (0, 0, 0, None)  # (em_max, ex_max, brightness, uuid)
     for pdict in protein_list.values():
-        em_maxes += pdict["states.0.em_max"]
-    em_max_ave = em_maxes/len()
-    
-    emx_ave = 0
+        if output[2] < pdict["states.0.brightness"]:
+
+            output = (pdict["states.0.em_max"],
+                      pdict["states.0.ex_max"],
+                      pdict["states.0.brightness"],
+                      pdict["uuid"])
+    return output
 
 
 if __name__ == "__main__":
