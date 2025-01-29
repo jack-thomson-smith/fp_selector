@@ -1,5 +1,6 @@
 import requests
 import csv
+import operator as o
 # import tkinter as tk
 from time import sleep
 
@@ -33,8 +34,8 @@ def refresh_database(field="default_state__em_max", lookup="gte", value="400"):
         #  writes refreshed data to file
 
 
-def create_protein_dict(file="_protein_database.csv"):
-    """ reads _protein_database.csv and outputs a dict of dicts.
+def create_protein_list(file="_protein_database.csv"):
+    """ reads _protein_database.csv and outputs a list of dicts.
 
     Arguments:
         file: a csv file (like _protein_database.csv).
@@ -42,10 +43,10 @@ def create_protein_dict(file="_protein_database.csv"):
     Returns: a list of dicts of protein data. Each dict is a row in
     the file and is mapped to the uuid of the protein."""
 
-    output = {}
+    output = []
     with open("csv_buffer.csv", "r") as csv_file:
         for line in csv.DictReader(csv_file):
-            output[line["uuid"]] = line
+            output.append(line)
     return output
 
 
@@ -54,6 +55,7 @@ def order_by_brightness(protein_list, file="_fp_brightness_list.py"):
     then write that info to file.
 
     """
+    pass
     # for pdict in protein_list.values():
     #    if output[]
 
@@ -61,23 +63,8 @@ def order_by_brightness(protein_list, file="_fp_brightness_list.py"):
     #    pass
 
 
-def prompt_choose_compatible(protein_list):
-    """ gets user input to choose compatible proteins.
-    """
-
-    ngcp = input(""" How many types of compatible
-                 proteins do you want to find?\n> """)
-    # ^ number of compatible proteins to find
-
-    protein_data = maximize_for_brightness(protein_list)
-    usable_spec = set(range(400, 701))
-    usable_spec -= set(range(protein_data[0]-(PWD*2), protein_data[0]+(PWD*2)))
-    # now, usable_spec is a set of all wavelengths between 400 and 700
-    # that the protein we just found's em max does not overlap with.
-
-
 def maximize_for_brightness(protein_list):
-    """ Given dict of protein dicts, chooses brightest one, and
+    """ Given list of protein dicts, chooses brightest one, and
     returns its emission max, excitation max, brightness value, and uuid.
     Could make this function more efficient by not accessing pdict values
     for every increment of brightness, and instead only accessing it once
