@@ -10,14 +10,12 @@ Requests Module documentation: https://requests.readthedocs.io/en/
 
 PWD = 50  # protein wavelength distribution
 
-class Query():
-    
-def refresh_database(field="default_state__em_max", lookup="gte", value="400"):
-    """ Searches FPBase database for proteins that match the critera, then writes
-    those values to _protein_database.csv. See documentation for list of parameters:
-    https://www.fpbase.org/api/. The current default params should return all proteins 
-    in the database. 
 
+def refresh_database(field="default_state__em_max", lookup="gte", value="400"):
+    """ Searches FPBase database for proteins that match the critera, then
+    writes those values to _protein_database.csv. See documentation for list
+    of parameters: https://www.fpbase.org/api/. The current default params
+    should return all proteins in the database.
 
     Arguments:
         field: a string of the field you want to look up (ex: name, seq,
@@ -41,7 +39,7 @@ def create_protein_dict(file="_protein_database.csv"):
     Arguments:
         file: a csv file (like _protein_database.csv).
 
-    Returns: a dict of dicts of protein data. Each dict is a row in
+    Returns: a list of dicts of protein data. Each dict is a row in
     the file and is mapped to the uuid of the protein."""
 
     output = {}
@@ -49,6 +47,18 @@ def create_protein_dict(file="_protein_database.csv"):
         for line in csv.DictReader(csv_file):
             output[line["uuid"]] = line
     return output
+
+
+def order_by_brightness(protein_list, file="_fp_brightness_list.py"):
+    """ WIP! need to develop sorting algorithm to rank proteins by brightness,
+    then write that info to file.
+
+    """
+    # for pdict in protein_list.values():
+    #    if output[]
+
+    # with open(file, "w") as list_file:
+    #    pass
 
 
 def prompt_choose_compatible(protein_list):
@@ -61,7 +71,7 @@ def prompt_choose_compatible(protein_list):
 
     protein_data = maximize_for_brightness(protein_list)
     usable_spec = set(range(400, 701))
-    usable_spec -= set(range(protein_data[0]-PWD, protein_data[0]+PWD))
+    usable_spec -= set(range(protein_data[0]-(PWD*2), protein_data[0]+(PWD*2)))
     # now, usable_spec is a set of all wavelengths between 400 and 700
     # that the protein we just found's em max does not overlap with.
 
@@ -91,7 +101,6 @@ def maximize_for_brightness(protein_list):
 if __name__ == "__main__":
     print("")
     print("Welcome to FP_Selector!")
-    print("Please input your specifications below.")
     print("")
 
     command = ""
@@ -108,9 +117,13 @@ if __name__ == "__main__":
                 count += 1
                 sleep(0.01)
         elif command == "pick compatible proteins" or command == "pcp":
-            prompt_choose_compatible(protein_list)
+            num = input("how many?\n> ")
+            if num == 2:
+                prompt_choose_compatible(protein_list)
+            else:
+                print("functionality has not been added.")
         elif command == "refresh database":
-
+            refresh_database()
         elif command == "else":
             pass  # loop breaks due to command now being "exit"
         else:
