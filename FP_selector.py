@@ -33,6 +33,8 @@ def refresh_database(field="default_state__em_max", lookup="gte", value="400"):
         csv_file.write(response_object.text)
         #  writes refreshed data to file
 
+    order_by_brightness(create_protein_list)
+
 
 def create_protein_list(file="_protein_database.csv"):
     """ reads _protein_database.csv and outputs a list of dicts.
@@ -44,23 +46,28 @@ def create_protein_list(file="_protein_database.csv"):
     the file and is mapped to the uuid of the protein."""
 
     output = []
-    with open("csv_buffer.csv", "r") as csv_file:
+    with open(file, "r") as csv_file:
         for line in csv.DictReader(csv_file):
             output.append(line)
     return output
 
 
-def order_by_brightness(protein_list, file="_fp_brightness_list.py"):
+def order_by_brightness(protein_list, file="_fp_ordered_brightness.csv"):
     """ WIP! need to develop sorting algorithm to rank proteins by brightness,
     then write that info to file.
 
     """
-    pass
-    # for pdict in protein_list.values():
-    #    if output[]
+    sorted_list = sorted(protein_list,
+                         key=lambda x: x["states.0.brightness"],
+                         reverse=True)
+    # ^ sorts list by brightness, highest -> lowest
 
-    # with open(file, "w") as list_file:
-    #    pass
+    with open(file, "w", newline='') as list_file:
+        fieldnames = sorted_list[0].keys()
+        writer = csv.DictWriter(list_file, fieldnames=fieldnames)
+
+        writer.writeheader()
+        writer.writerows(sorted_list)
 
 
 def maximize_for_brightness(protein_list):
