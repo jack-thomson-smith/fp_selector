@@ -62,13 +62,14 @@ def order_by_brightness(protein_list, file="_fp_ordered_brightness.csv"):
         protein_list: list of dict of proteins
         file: file to write to (default: _fp_ordered_brightness.csv)
     """
+    sorted_list = [p for p in protein_list if not has_empty_values(p)]
+    # ^ removes proteins with no brightness/ex/em value
 
-    sorted_list = sorted(protein_list,
-                         key=lambda x: x["states.0.brightness"],
+    sorted_list = sorted(sorted_list,
+                         key=lambda x: float(x["states.0.brightness"]),
                          reverse=True)
     # ^ sorts list by brightness, highest -> lowest
-    sorted_list = [p for p in sorted_list if not has_empty_values(p)]
-    # ^ removes proteins with no brightness/ex/em value
+    # the float() is very important!!! otherwise it is a string!!
 
     with open(file, "w", newline="", encoding="utf-8") as list_file:
         fieldnames = sorted_list[0].keys()
@@ -80,17 +81,19 @@ def order_by_brightness(protein_list, file="_fp_ordered_brightness.csv"):
 def build_allowed_spectrum(constraint, radius):
     """function description tbd"""
     constraints_spec = set(range(constraint-(radius), constraint+(radius)+1))
-    return set(range(400, 701)) - constraints_spec
+    return set(range(380, 701)) - constraints_spec
 
 
 def has_empty_values(pdict):
+
     if pdict["states.0.brightness"] == '':
         return True
-    if pdict["states.0.em_max"] == '':
+    elif pdict["states.0.em_max"] == '':
         return True
-    if pdict["states.0.ex_max"] == '':
+    elif pdict["states.0.ex_max"] == '':
         return True
-    return False
+    else:
+        return False
 
 
 def choose_compatible(sorted_protein_list, constraints):
@@ -116,8 +119,8 @@ def choose_compatible(sorted_protein_list, constraints):
     while output_index is None:
         r -= 10  # every loop, decreases radius until a protein is found\
         allowed_em_spec = build_allowed_spectrum(constraints["em_max"], r)
-
         allowed_ex_spec = build_allowed_spectrum(constraints["ex_max"], r)
+
         order = constraints["order"] + 1
         for index, protein in enumerate(sorted_protein_list):
             allowed_em = int(protein["states.0.em_max"]) in allowed_em_spec
@@ -139,7 +142,7 @@ def get_protein_info(protein_list, protein):
     p_info = None
     for p in protein_list:
         if p["name"].casefold() == name.casefold():
-            p_info = (int(p["states.1.em_max"]), int(p["states.1.ex_max"]))
+            p_info = (int(p["states.0.em_max"]), int(p["states.0.ex_max"]))
     # ^ case-insensitive input mapping to protein
     if p_info is None:
         return "invalid name"
@@ -151,7 +154,7 @@ def output_compatible(sorted_protein_list, name, order):
     p_info = None
     for p in sorted_protein_list:
         if p["name"].casefold() == name.casefold():
-            p_info = (int(p["states.1.em_max"]), int(p["states.1.ex_max"]))
+            p_info = (int(p["states.0.em_max"]), int(p["states.0.ex_max"]))
     # ^ case-insensitive input mapping to protein
     if p_info is None:
         return "invalid name"
@@ -168,7 +171,8 @@ if __name__ == "__main__":
     ordered_plist = build_protein_list("_fp_ordered_brightness.csv")
     command = ""
     commands = ["list by brightness (lbb)", "pick compatible proteins (pcp)",
-                "refresh database (rd)", "list commands (ls)", "exit"]
+                "refresh database (rd)", "list commands (ls)", "get info (gi)",
+                "exit"]
 
     print("")
     print("Welcome to FP_Selector!")
@@ -179,14 +183,14 @@ if __name__ == "__main__":
         command = input("> ")
 
         if command == "list by brightest" or command == "lbb":
-            for i in range(10):
+            for i in range(5):
                 print(f"{i+1}: {ordered_plist[i]['name']}")
                 sleep(0.05)
 
         elif command == "pick compatible proteins" or command == "pcp":
             name = input("Please enter protein name below.\n   > ")
 
-            for i in range(10):
+            for i in range(5):
                 brightest_p = output_compatible(ordered_plist, name, i+1)
 
                 if brightest_p == "invalid name":
@@ -196,7 +200,7 @@ if __name__ == "__main__":
                     print("No more proteins can be found.")
                     break
 
-                print(f"{i}: {brightest_p['name']}")
+                print(f"{i+1}: {brightest_p['name']}")
                 print(f"    brightness: {brightest_p['states.0.brightness']}")
                 print(f"    emission max: {brightest_p['states.0.em_max']}")
                 print(f"    excitation max: {brightest_p['states.0.ex_max']}")
@@ -206,7 +210,6 @@ if __name__ == "__main__":
 
         elif command == "get info" or command == "gi":
             protein = input("Enter protein:\n   >")
-
 
         elif command == "list commands" or command == "ls":
             print("commands:")
