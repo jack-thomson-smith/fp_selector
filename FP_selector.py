@@ -62,15 +62,17 @@ def order_by_brightness(protein_list, file="_fp_ordered_brightness.csv"):
         protein_list: list of dict of proteins
         file: file to write to (default: _fp_ordered_brightness.csv)
     """
+
     sorted_list = sorted(protein_list,
                          key=lambda x: x["states.0.brightness"],
                          reverse=True)
     # ^ sorts list by brightness, highest -> lowest
+    sorted_list = [p for p in sorted_list if not has_empty_values(p)]
+    # ^ removes proteins with no brightness/ex/em value
 
     with open(file, "w", newline="", encoding="utf-8") as list_file:
         fieldnames = sorted_list[0].keys()
         writer = csv.DictWriter(list_file, fieldnames=fieldnames)
-
         writer.writeheader()
         writer.writerows(sorted_list)
 
@@ -79,6 +81,16 @@ def build_allowed_spectrum(constraint, radius):
     """function description tbd"""
     constraints_spec = set(range(constraint-(radius), constraint+(radius)+1))
     return set(range(400, 701)) - constraints_spec
+
+
+def has_empty_values(pdict):
+    if pdict["states.0.brightness"] == '':
+        return True
+    if pdict["states.0.em_max"] == '':
+        return True
+    if pdict["states.0.ex_max"] == '':
+        return True
+    return False
 
 
 def choose_compatible(sorted_protein_list, constraints):
@@ -99,16 +111,14 @@ def choose_compatible(sorted_protein_list, constraints):
     Returns: protein dict, or None if no protein was found."""
 
     output_index = None
-    r = 110
+    r = 70
 
     while output_index is None:
         r -= 10  # every loop, decreases radius until a protein is found\
-        print("current radius:", r)
         allowed_em_spec = build_allowed_spectrum(constraints["em_max"], r)
 
         allowed_ex_spec = build_allowed_spectrum(constraints["ex_max"], r)
         order = constraints["order"] + 1
-        print("order:", order)
         for index, protein in enumerate(sorted_protein_list):
             allowed_em = int(protein["states.0.em_max"]) in allowed_em_spec
             allowed_ex = int(protein["states.0.ex_max"]) in allowed_ex_spec
@@ -125,13 +135,23 @@ def choose_compatible(sorted_protein_list, constraints):
     return sorted_protein_list[output_index]
 
 
+def get_protein_info(protein_list, protein):
+    p_info = None
+    for p in protein_list:
+        if p["name"].casefold() == name.casefold():
+            p_info = (int(p["states.1.em_max"]), int(p["states.1.ex_max"]))
+    # ^ case-insensitive input mapping to protein
+    if p_info is None:
+        return "invalid name"
+
+
 def output_compatible(sorted_protein_list, name, order):
     """function description tbd"""
 
     p_info = None
     for p in sorted_protein_list:
         if p["name"].casefold() == name.casefold():
-            p_info = (int(p["states.0.em_max"]), int(p["states.0.ex_max"]))
+            p_info = (int(p["states.1.em_max"]), int(p["states.1.ex_max"]))
     # ^ case-insensitive input mapping to protein
     if p_info is None:
         return "invalid name"
@@ -183,6 +203,10 @@ if __name__ == "__main__":
 
         elif command == "refresh database" or command == "rd":
             refresh_database()
+
+        elif command == "get info" or command == "gi":
+            protein = input("Enter protein:\n   >")
+
 
         elif command == "list commands" or command == "ls":
             print("commands:")
