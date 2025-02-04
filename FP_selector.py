@@ -13,6 +13,14 @@ Requests Module documentation: https://requests.readthedocs.io/en/
 Additional Sources:
 https://blog.addgene.org/choosing-your-fluorescent-proteins-for-multi-color-imaging
 
+TODO:
+-convert fp_selector.py to OOP (maybe later)
+-add functionality for finding 3 compatible proteins
+    -will need to figure out how to build algorithm for this
+-make GUI with tkinter
+    -simulate protein spectra with matplotlib
+-add pictures of GUI to README.txt for github viewing
+
 """
 
 
@@ -20,16 +28,7 @@ def refresh_database(field="default_state__em_max", lookup="gte", value="380"):
     """Searches FPBase database for proteins that match the critera, then
     writes those values to _protein_database.csv. See documentation for list
     of parameters: https://www.fpbase.org/api/. The current default params
-    should return all proteins in the database.
-
-    Arguments:
-        field: a string of the field you want to look up
-               (default: default_state__em_max)
-        lookup: a string of the lookup operator you want to use
-               (default: gte)
-        value: a string of the value you want to find
-               (default: 380)"""
-
+    should return all proteins in the database."""
     url = "https://www.fpbase.org/api/proteins/"
     payload = {f"{field}__{lookup}": value}  # "field__lookup":"value"
     response_obj = requests.get(url, params=payload)
@@ -88,15 +87,15 @@ def build_allowed_spectrum(constraint, radius):
     return set(range(380, 701)) - constraints_spec
 
 
-def has_empty_values(pdict):
+def has_empty_values(protein_dict):
     """Checks if the given protein dict has empty values for the brightness,
     emission max, or excitation max. If it does, returns True, if it doesn't,
     returns False. """
-    if pdict["states.0.brightness"] == '':
+    if protein_dict["states.0.brightness"] == '':
         return True
-    elif pdict["states.0.em_max"] == '':
+    elif protein_dict["states.0.em_max"] == '':
         return True
-    elif pdict["states.0.ex_max"] == '':
+    elif protein_dict["states.0.ex_max"] == '':
         return True
     else:
         return False
@@ -171,15 +170,15 @@ def output_compatible(sorted_protein_list, name, order):
     return brightest_p_dict
 
 
-def get_protein_info_string(pdict):
+def get_protein_info_string(protein_dict):
     """Given a protein dict (from protein_list), returns relevant information
     in a string."""
-    underlined_name = "\033[4m" + pdict['name'] + "\033[0m"
-    ex_max = int(pdict['states.0.ex_max'])
-    em_max = int(pdict['states.0.em_max'])
+    underlined_name = "\033[4m" + protein_dict['name'] + "\033[0m"
+    ex_max = int(protein_dict['states.0.ex_max'])
+    em_max = int(protein_dict['states.0.em_max'])
 
     output_string = f""" {underlined_name}
-    brightness: {pdict['states.0.brightness']}
+    brightness: {protein_dict['states.0.brightness']}
     ex/em max: {ex_max}/{em_max}"""
 
     return output_string
