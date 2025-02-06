@@ -25,14 +25,14 @@ TODO:
 
 
 def refresh_database(field="default_state__em_max", lookup="gte", value="380"):
-    """Searches FPBase database for proteins that match the critera, then
-    writes those values to _protein_database.csv. See documentation for list
-    of parameters: https://www.fpbase.org/api/. The current default params
-    should return all proteins in the database."""
+    """Searches FPBase database for proteins that match the critera, writes
+    those values to _protein_database.csv, then sorts the .csv file by protein
+    brightness and writes the sorted list to _fp_ordered_brightness.csv.
+    See documentation for list of parameters: https://www.fpbase.org/api/.
+    The current default params should return all proteins in the database."""
     url = "https://www.fpbase.org/api/proteins/"
     payload = {f"{field}__{lookup}": value}  # "field__lookup":"value"
     response_obj = requests.get(url, params=payload)
-
     print(f"fetch status: {response_obj.status_code} ({response_obj.reason})")
 
     with open("_protein_database.csv", "w", encoding="utf-8") as csv_file:
@@ -43,13 +43,7 @@ def refresh_database(field="default_state__em_max", lookup="gte", value="380"):
 
 
 def build_protein_list(file="_protein_database.csv"):
-    """Reads the given .csv file and outputs a list of dicts.
-
-    Arguments:
-        file: a csv file (default: _protein_database.csv).
-
-    Returns: a list of dicts of protein data."""
-
+    """Reads the given .csv file and outputs a list of dicts."""
     output = []
     with open(file, "r", encoding="utf-8") as csv_file:
         for line in csv.DictReader(csv_file):
@@ -58,21 +52,14 @@ def build_protein_list(file="_protein_database.csv"):
 
 
 def order_by_brightness(protein_list, file="_fp_ordered_brightness.csv"):
-    """Sorts protein list, then writes info in csv format to a file.
-
-    Arguments:
-        protein_list: list of dict of proteins
-        file: file to write to (default: _fp_ordered_brightness.csv)
-    """
+    """Sorts protein list, then writes the csv info to the passed file. """
     sorted_list = [p for p in protein_list if not has_empty_values(p)]
     # ^ removes proteins with no brightness/ex/em value
-
     sorted_list = sorted(sorted_list,
                          key=lambda x: float(x["states.0.brightness"]),
                          reverse=True)
     # ^ sorts list by brightness, highest -> lowest
     # the float() is very important!!! otherwise it is a string!!
-
     with open(file, "w", newline="", encoding="utf-8") as list_file:
         fieldnames = sorted_list[0].keys()
         writer = csv.DictWriter(list_file, fieldnames=fieldnames)
@@ -80,11 +67,15 @@ def order_by_brightness(protein_list, file="_fp_ordered_brightness.csv"):
         writer.writerows(sorted_list)
 
 
-def build_allowed_spectrum(constraint, radius):
+def build_allowed_spectrum(maxes, radius):
     """Builds the allowed wavelength spectrum for a fluorescent protein to be
     compatible with, with the given constraints. """
-    constraints_spec = set(range(constraint-(radius), constraint+(radius)+1))
-    return set(range(380, 701)) - constraints_spec
+    unallowed_spec = set()  # idk if unallowed is a word
+    allowed_spec = set(range(380, 701))
+    for max in maxes:
+        unallowed_spec |= set(range(max-(radius), max+(radius)+1))
+        allowed_spec -= unallowed_spec
+    return allowed_spec
 
 
 def has_empty_values(protein_dict):
@@ -104,33 +95,29 @@ def has_empty_values(protein_dict):
 def choose_compatible(sorted_protein_list, constraints):
     """Chooses compatible proteins based off of constraints parameter.
     The idea is to find the brightest proteins that have both em_maxes
-    and ex_maxes that are at least 60-100 nm seperated.
+    and ex_maxes that are at least 55-70 nm seperated. Returns None if
+    no protein was found.
 
-    Arguments:
-        sorted_protein_list: list of proteins (presorted by brightness).
-        constraints: dict in the format {"em_max": int,
-                                         "ex_max": int,
-                                         "order": int}
-                    "order" denotes which protein will be chosen. If it's
-                    1, then the first protein that matches the criteria
-                    will be chosen. If it's 2, then the second protein that
-                    matches the criteria will be chosen, and so on.
-
-    Returns: protein dict, or None if no protein was found."""
+    constraints: dict in the format {"em_maxes": list,
+                                     "ex_maxes": list,
+                                     "order": int}
+    "order" denotes which protein will be chosen. If it's 1, then the first
+    protein that matches the criteria will be chosen. If it's 2, then the
+    second protein that matches the criteria will be chosen, and so on."""
     compatible_protein_index = None
     r = 70
 
     while compatible_protein_index is None:
         r -= 5  # every loop, decreases radius until a protein is found
-        allowed_em_spec = build_allowed_spectrum(constraints["em_max"], r)
-        allowed_ex_spec = build_allowed_spectrum(constraints["ex_max"], r)
+        allowed_em_spec = build_allowed_spectrum(constraints["em_maxes"], r)
+        allowed_ex_spec = build_allowed_spectrum(constraints["ex_maxes"], r)
         order = constraints["order"]
 
         for index, protein in enumerate(sorted_protein_list):
-            allowed_em = int(protein["states.0.em_max"]) in allowed_em_spec
-            allowed_ex = int(protein["states.0.ex_max"]) in allowed_ex_spec
+            em_allowed = int(protein["states.0.em_max"]) in allowed_em_spec
+            ex_allowed = int(protein["states.0.ex_max"]) in allowed_ex_spec
 
-            if allowed_em and allowed_ex:
+            if em_allowed and ex_allowed:
                 if order == 1:
                     compatible_protein_index = index
                 order -= 1  # decreases the order by 1 every loop
@@ -155,19 +142,57 @@ def validate_protein_from_name(protein_list, inputted_name):
     return output
 
 
-def output_compatible(sorted_protein_list, name, order):
+def calc_bscore(proteins):
+    score = 0
+    for p in proteins:
+        score += float(p["states.0.brightness"])
+    return score
+
+
+def output_compatible(sorted_protein_list, name, order, amount):
     """Matches user inputted protein name to a protein dict in the protein
-    list, then returns the brightest protein dict that is compatible w/ it."""
+    list, then returns brightest protein dict(s) that are compatible w/ it."""
     pd = validate_protein_from_name(sorted_protein_list, name)
-    # pd means protein dict
     if pd is None:
         return None
+    # bpd_1 means brightest protein dict #1
+    bpd_1 = choose_compatible(sorted_protein_list,
+                              {'em_maxes': [int(pd["states.0.em_max"])],
+                               'ex_maxes': [int(pd["states.0.ex_max"])],
+                               'order': order})
+    if amount == 1:  # only finds the brightest compat. protein and returns it
+        return bpd_1
 
-    brightest_p_dict = choose_compatible(sorted_protein_list,
-                                         {'em_max': int(pd["states.0.em_max"]),
-                                          'ex_max': int(pd["states.0.ex_max"]),
-                                          'order': order})
-    return brightest_p_dict
+    # ______Below this comment is code for finding more than 1 compat. protein
+    bpd_2 = choose_compatible(sorted_protein_list,
+                              {'em_maxes': [int(pd["states.0.em_max"]),
+                                            int(bpd_1["states.0.em_max"])],
+                               'ex_maxes': [int(pd["states.0.ex_max"]),
+                                            int(bpd_1["states.0.ex_max"])],
+                               'order': order})
+    brightest_combo = [pd, bpd_1, bpd_2]
+    score = calc_bscore(brightest_combo)
+
+    for i in range(100):
+
+        bpd_1 = choose_compatible(sorted_protein_list,
+                                  {'em_maxes': [int(pd["states.0.em_max"])],
+                                   'ex_maxes': [int(pd["states.0.ex_max"])],
+                                   'order': order+i+1})  # order+=1 every loop
+        bpd_2 = choose_compatible(sorted_protein_list,
+                                  {'em_maxes': [int(pd["states.0.em_max"]),
+                                                int(bpd_1["states.0.em_max"])],
+                                   'ex_maxes': [int(pd["states.0.ex_max"]),
+                                                int(bpd_1["states.0.ex_max"])],
+                                   'order': order})
+        print("\ncurrent iteration bscore:", calc_bscore([pd, bpd_1, bpd_2]))
+        print(f"   (testing {bpd_1['name']} and {bpd_2['name']})")
+        if calc_bscore([pd, bpd_1, bpd_2]) > score:
+            score = calc_bscore([pd, bpd_1, bpd_2])
+            brightest_combo = [pd, bpd_1, bpd_2]
+
+    print("brightest score: ", score)
+    return brightest_combo
 
 
 def get_protein_info_string(protein_dict):
@@ -180,7 +205,6 @@ def get_protein_info_string(protein_dict):
     output_string = f""" {underlined_name}
     brightness: {protein_dict['states.0.brightness']}
     ex/em max: {ex_max}/{em_max}"""
-
     return output_string
 
 
@@ -206,12 +230,25 @@ if __name__ == "__main__":
 
         elif command == "pick compatible proteins" or command == "pcp":
             name = input("Please enter protein name below.\n   > ")
+            amount = int(input("How many?\n   >"))
+            if amount == 1:
+                for i in range(5):
+                    # bp means brightest protein
+                    bp = output_compatible(sorted_protein_list=ordered_plist,
+                                           name=name,
+                                           order=i+1,
+                                           amount=1)
+                    if bp is not None:  # e.g. no compatible found
+                        print(f"{i+1}:{get_protein_info_string(bp)}\n")
+                    sleep(0.05)
 
-            for i in range(5):
-                brightest_p = output_compatible(ordered_plist, name, i+1)
-                if brightest_p is not None:  # e.g. no compatible found
-                    print(f"{i+1}:{get_protein_info_string(brightest_p)}\n")
-                sleep(0.05)
+            elif amount == 2:
+                bp_combo = output_compatible(sorted_protein_list=ordered_plist,
+                                             name=name,
+                                             order=1,
+                                             amount=2)
+                for p in bp_combo:
+                    print(p["name"])
 
         elif command == "refresh database" or command == "rd":
             refresh_database()
@@ -226,6 +263,20 @@ if __name__ == "__main__":
             print("commands:")
             for c in commands:
                 print(" ", c)
+
+        elif command == "ln":
+            total1 = 0
+            total2 = 0
+            total3 = 0
+            for pd in ordered_plist:
+                wl = int(pd["states.0.em_max"])
+                if wl <= 640:
+                    total1 += 1
+                if wl >= 440:
+                    total2 += 1
+                if wl >= 640 and wl >= 440:
+                    total3 += 1
+            print(total1 * (total2) * (total3))
 
         else:
             if command != "exit":
